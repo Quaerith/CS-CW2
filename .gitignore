@@ -1,0 +1,22 @@
+# exclude instructions 
+*.pdf
+
+# excldue compiled files
+*.bin
+*.o
+*.out
+
+# exclude OSX files
+.DS_Store
+
+# exclude java archives (ex: Mars.jar)
+*.jar
+
+# exclude log files
+*.log
+
+#exclude executables
+*.exe
+
+#exclude vscode stuff
+./vscode

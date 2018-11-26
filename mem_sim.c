@@ -262,6 +262,25 @@ int main(int argc, char** argv) {
         cache.hit_miss.cache_misses = 0
     };
 
+    if (cache.associativity_type == 1) {
+        uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks)/log(2));
+        g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
+        g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
+    }
+    
+    else if (cache.associativity_type == cache.cache_blocks)
+    {
+        g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
+        g_num_cache_tag_bits = 32 - g_cache_offset_bits;
+    }
+
+    else {
+        uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks/associativity)/log(2));
+        g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
+        g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
+    }
+    
+
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
     while(1) {
@@ -307,25 +326,7 @@ int main(int argc, char** argv) {
 
     }
 
-    if (cache.associativity_type == 1) {
-        uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks)/log(2));
-        g_cache_offset_bits = (uint32_t)(log(cache_block_size/8)/log(2));
-        g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
-    }
     
-    else if (cache.associativity_type == cache.cache_blocks)
-    {
-        g_cache_offset_bits = (uint32_t)(log(cache_block_size/8)/log(2));
-        g_num_cache_tag_bits = 32 - g_cache_offset_bits;
-    }
-
-    else {
-        uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks/associativity)/log(2));
-        g_cache_offset_bits = (uint32_t)(log(cache_block_size/8)/log(2));
-        g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
-    }
-    
-   
 
     /* Do not modify code below. */
     /* Make sure that all the parameters are appropriately populated. */
