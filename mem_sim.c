@@ -98,6 +98,83 @@ void print_statistics(uint32_t num_cache_tag_bits, uint32_t cache_offset_bits, r
  *
  */
 
+// Converts a hexadecimal address into a binary one
+
+char* hex_to_binary(char* hex) {
+    char* bin = "";
+    int i = 0;
+
+    /* Extract first digit and find binary of each hex digit */
+    
+    for(i=0; hex[i]!='\0'; i++) {
+        switch(hex[i]) {
+            case '0':
+                strcat(bin, "0000");
+                break;
+            case '1':
+                strcat(bin, "0001");
+                break;
+            case '2':
+                strcat(bin, "0010");
+                break;
+            case '3':
+                strcat(bin, "0011");
+                break;
+            case '4':
+                strcat(bin, "0100");
+                break;
+            case '5':
+                strcat(bin, "0101");
+                break;
+            case '6':
+                strcat(bin, "0110");
+                break;
+            case '7':
+                strcat(bin, "0111");
+                break;
+            case '8':
+                strcat(bin, "1000");
+                break;
+            case '9':
+                strcat(bin, "1001");
+                break;
+            case 'a':
+            case 'A':
+                strcat(bin, "1010");
+                break;
+            case 'b':
+            case 'B':
+                strcat(bin, "1011");
+                break;
+            case 'c':
+            case 'C':
+                strcat(bin, "1100");
+                break;
+            case 'd':
+            case 'D':
+                strcat(bin, "1101");
+                break;
+            case 'e':
+            case 'E':
+                strcat(bin, "1110");
+                break;
+            case 'f':
+            case 'F':
+                strcat(bin, "1111");
+                break;
+            default:
+                printf("Invalid hexadecimal input.");
+        }
+    }
+    return bin;
+
+}
+
+/* Sorting algorithm to keep track of least access block for fully associated LRU cache */
+
+
+// Global variables and/or functions end
+
 
 int main(int argc, char** argv) {
     time_t t;
@@ -165,6 +242,24 @@ int main(int argc, char** argv) {
 
     /* You may want to setup your Cache structure here. */
 
+    struct Cache {
+        uint32_t cache_blocks;
+        uint32_t block_size;
+        uint32_t associativity_type;
+        replacement_p replacement_policy_type;
+        result_t hit_miss;
+      //  mem_access_t address;        
+    } ;
+
+    struct Cache cache = {
+        cache.cache_blocks = number_of_cache_blocks,
+        cache.block_size = cache_block_size,
+        cache.replacement_policy_type = replacement_policy,
+        cache.associativity_type = associativity,
+        cache.hit_miss.cache_hits = 0,
+        cache.hit_miss.cache_misses = 0
+    };
+
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
     while(1) {
@@ -174,6 +269,37 @@ int main(int argc, char** argv) {
             break;
 
         /* Add your code here */
+        if (cache.associativity_type == 1) 
+        {
+            return 0;
+        }
+        
+        else if (cache.associativity_type == cache.cache_blocks)
+        {
+            if (cache.replacement_policy_type == FIFO) 
+            {
+                return 0;
+            }
+            
+            else if (cache.replacement_policy_type == LRU)
+            {
+                return 0;
+            }
+            
+            else if (cache.replacement_policy_type == Random)
+            {
+                return 0;
+            }
+            
+            
+        }
+        
+        else 
+        {
+            return 0;
+        }
+        
+               
 
     }
 
