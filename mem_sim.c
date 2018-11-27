@@ -98,81 +98,30 @@ void print_statistics(uint32_t num_cache_tag_bits, uint32_t cache_offset_bits, r
  *
  */
 
-// Converts a hexadecimal address into a binary one
+/* Defines the structure of a cache block address */
 
-char* hex_to_binary(char* hex) {
-    char* bin = "";
-    int i = 0;
+typedef struct {
+    uint32_t tag;
+    uint32_t index;
+    uint32_t offset;
+} cache_block;
 
-    /* Extract first digit and find binary of each hex digit */
-    
-    for(i=0; hex[i]!='\0'; i++) {
-        switch(hex[i]) {
-            case '0':
-                strcat(bin, "0000");
-                break;
-            case '1':
-                strcat(bin, "0001");
-                break;
-            case '2':
-                strcat(bin, "0010");
-                break;
-            case '3':
-                strcat(bin, "0011");
-                break;
-            case '4':
-                strcat(bin, "0100");
-                break;
-            case '5':
-                strcat(bin, "0101");
-                break;
-            case '6':
-                strcat(bin, "0110");
-                break;
-            case '7':
-                strcat(bin, "0111");
-                break;
-            case '8':
-                strcat(bin, "1000");
-                break;
-            case '9':
-                strcat(bin, "1001");
-                break;
-            case 'a':
-            case 'A':
-                strcat(bin, "1010");
-                break;
-            case 'b':
-            case 'B':
-                strcat(bin, "1011");
-                break;
-            case 'c':
-            case 'C':
-                strcat(bin, "1100");
-                break;
-            case 'd':
-            case 'D':
-                strcat(bin, "1101");
-                break;
-            case 'e':
-            case 'E':
-                strcat(bin, "1110");
-                break;
-            case 'f':
-            case 'F':
-                strcat(bin, "1111");
-                break;
-            default:
-                printf("Invalid hexadecimal input.");
-        }
-    }
-    return bin;
 
-}
+
 
 /* Sorting algorithm to keep track of least access block for fully associated LRU cache */
 
-//void sort_fa_LRU()
+
+void sort_LRU(uint32_t index_associativity, uint32_t last_access_index, cache_block* accesses) {
+    cache_block address = accesses[last_access_index];
+    if (last_access_index != index_associativity - 1) {
+        for(int i = last_access_index; i < index_associativity - 1; i++) {
+            accesses[i] = accesses[i+1];
+        }
+        accesses[index_associativity - 1] = address;
+    }
+
+}
 
 
 // Global variables and/or functions end
@@ -228,6 +177,8 @@ int main(int argc, char** argv) {
     printf("input:cache_block_size: %u\n", cache_block_size);
     printf("\n");
 
+    
+
     /* Open the file mem_trace.txt to read memory accesses */
     FILE *ptr_file;
     ptr_file = fopen(file,"r");
@@ -243,15 +194,8 @@ int main(int argc, char** argv) {
      * Use the following snippet and add your code to finish the task. */
 
     /* You may want to setup your Cache structure here. */
+     
 
-    /* Defines the structure of a cache block address */
-
-    typedef struct {
-        uint32_t tag;
-        uint32_t index;
-        uint32_t offset;
-      //  mem_access_t address;        
-    } cache_block;
 
     uint32_t number_of_sets = number_of_cache_blocks / associativity;
 
@@ -281,7 +225,7 @@ int main(int argc, char** argv) {
     
     /* Initialize an array for the cache blocks */
 
-    cache_block* cache = malloc (number_of_cache_blocks * sizeof(cache_block));
+    cache_block* cache = malloc ((number_of_cache_blocks + 100) * sizeof(cache_block));
 
     
 
@@ -291,6 +235,10 @@ int main(int argc, char** argv) {
     uint32_t* sets = (uint32_t*) calloc (number_of_sets, sizeof(uint32_t));
 
     int i = 0;
+
+    uint32_t* lru_trace = calloc (number_of_cache_blocks, sizeof(uint32_t));     // will keep evidence of the least recently used block from a set
+
+   
 
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
@@ -304,12 +252,14 @@ int main(int argc, char** argv) {
 
         uint32_t tag = access.address >> (32 - g_num_cache_tag_bits);
         uint32_t index;
+        
         if (associativity == number_of_cache_blocks) {
             index = 0;
         }
         else { 
             index = (access.address << g_num_cache_tag_bits) >> (g_cache_offset_bits + g_num_cache_tag_bits);
         }
+
     
         int hit = 0;
 
@@ -335,62 +285,51 @@ int main(int argc, char** argv) {
             }
             
         }
+
+        int done = 0;
         
 
-        i++;
+        if (replacement_policy == LRU) {
+            for (int j = 0; j < associativity; j++) {
+                lru_trace[j + index/associativity]++;
+            }
+            for(int j = 0; j < associativity; j++){
+                if(cache[j + index/associativity].tag == tag) {
+                    g_result.cache_hits++;
+                    hit = 1;
+                    lru_trace[j + index/associativity] = 0;
+                    break;
+                }
+            }
 
+            if (hit == 0) {
+                g_result.cache_misses++;
+                uint32_t max_val = 0;
+                uint32_t max_val_index = 0;
+                for(int j = 0; j < associativity; j++) {
+                    // lru_trace[j + index/associativity]++;
+                    if (lru_trace[j + index/associativity] > max_val) {
+                        max_val = lru_trace[j + index/associativity];
+                        max_val_index = j + index/associativity;
+                    }
+                }
+                cache[max_val_index].tag = tag;
+                cache[max_val_index].index = index;
+                lru_trace[max_val_index] = 0;
+            }
+        }
 
-        // if (associativity == 1) 
-        // {
-        //     // if (i < number_of_cache_blocks) {
-        //     //     cache[i].tag = access.address >> (32 - g_num_cache_tag_bits);
-        //     //     cache[i].index = access.address << g_num_cache_tag_bits;
-        //     //     cache[i].index = access.address >> (g_cache_offset_bits + g_num_cache_tag_bits);
-        //     //     cache[i].offset = access.address << (cache[i].tag + cache[i].index);
-        //     //     cache[i].offset = access.address >> (cache[i].tag + cache[i].index);
-        //     //     i ++;
-        //     // }
+        if (replacement_policy == Random) {
 
-        //     uint32_t tag = access.address >> (32 - g_num_cache_tag_bits);
-        //     uint32_t index = access.address << g_num_cache_tag_bits;
-        //     uint32_t index = access.address >> (g_cache_offset_bits + g_num_cache_tag_bits);
-        //     if (cache[index].index == )
+        }
 
-
-        // }
-        
-        // else if (associativity == number_of_cache_blocks)
-        // {
-        //     if (replacement_policy == FIFO) 
-        //     {
-        //        // return 0;
-        //     }
-            
-        //     else if (replacement_policy == LRU)
-        //     {
-        //        // return 0;
-        //     }
-            
-        //     else if (replacement_policy == Random)
-        //     {
-        //        // return 0;
-        //     }
-            
-            
-        // }
-        
-        // else 
-        // {
-            
-        //     //return 0;
-        // }
-        
-        
-               
-
+        i++;      
+                  
     }
 
     free(cache);
+    free(sets);
+    free(lru_trace);
 
     //g_result.cache_misses = i - g_result.cache_hits;
 
