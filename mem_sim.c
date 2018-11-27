@@ -244,42 +244,53 @@ int main(int argc, char** argv) {
 
     /* You may want to setup your Cache structure here. */
 
-    struct Cache {
-        uint32_t cache_blocks;
-        uint32_t block_size;
-        uint32_t associativity_type;
-        replacement_p replacement_policy_type;
-        result_t hit_miss;
+    /* Defines the structure of a cache block address */
+
+    typedef struct {
+        uint32_t tag;
+        uint32_t index;
+        uint32_t offset;
       //  mem_access_t address;        
-    } ;
+    } cache_block;
 
-    struct Cache cache = {
-        cache.cache_blocks = number_of_cache_blocks,
-        cache.block_size = cache_block_size,
-        cache.replacement_policy_type = replacement_policy,
-        cache.associativity_type = associativity,
-        cache.hit_miss.cache_hits = 0,
-        cache.hit_miss.cache_misses = 0
-    };
+    uint32_t number_of_sets = number_of_cache_blocks / associativity;
 
-    if (cache.associativity_type == 1) {
+    /* Defines the structure of a cache block address */
+
+    /* Calculating the tag, index (where necessary) and byte offset of a physical memory address */
+
+    if (associativity == 1) {
         uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks)/log(2));
         g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
         g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
     }
     
-    else if (cache.associativity_type == cache.cache_blocks)
+    else if (associativity == number_of_cache_blocks)
     {
         g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
         g_num_cache_tag_bits = 32 - g_cache_offset_bits;
     }
 
     else {
-        uint32_t index_bits = (uint32_t)(log(number_of_cache_blocks/associativity)/log(2));
+        uint32_t index_bits = (uint32_t)(log(number_of_sets)/log(2));
         g_cache_offset_bits = (uint32_t)(log(cache_block_size)/log(2));
         g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
     }
+
+    /* Calculating the tag, index (where necessary) and byte offset of a physical memory address */
     
+    /* Initialize an array for the cache blocks */
+
+    cache_block* cache = malloc (number_of_cache_blocks * sizeof(cache_block));
+
+    
+
+    /* Initialize an array for each one of the (possible) block sets
+       sets[i] = n if the ith set had the most recent hit/replacement in its nth block */
+
+    uint32_t* sets = (uint32_t*) calloc (number_of_sets, sizeof(uint32_t));
+
+    int i = 0;
 
     mem_access_t access;
     /* Loop until the whole trace file has been read. */
@@ -290,43 +301,98 @@ int main(int argc, char** argv) {
             break;
 
         /* Add your code here */
-        if (cache.associativity_type == 1) 
+
+        uint32_t tag = access.address >> (32 - g_num_cache_tag_bits);
+        uint32_t index;
+        if (associativity == number_of_cache_blocks) {
+            index = 0;
+        }
+        else { 
+            index = (access.address << g_num_cache_tag_bits) >> (g_cache_offset_bits + g_num_cache_tag_bits);
+        }
+    
+        int hit = 0;
+
+        if (replacement_policy == FIFO)
         {
-            return 0;
+            if (sets[index/associativity] == associativity) {
+                sets[index/associativity] = 0;                            // Resets the last accessed element of the set
+            }
+            int j = 0;
+            for(int j = 0; j < associativity; j++){
+                if(cache[j + index/associativity].tag == tag) {
+                    g_result.cache_hits++;
+                    hit = 1;
+                    break;
+                }
+            }
+            
+            if (hit == 0) {
+                g_result.cache_misses++;
+                cache[index/associativity + sets[index/associativity]].tag = tag;
+                cache[index/associativity + sets[index/associativity]].index = index;
+                sets[index/associativity]++;
+            }
+            
         }
         
-        else if (cache.associativity_type == cache.cache_blocks)
-        {
-            if (cache.replacement_policy_type == FIFO) 
-            {
-                return 0;
-            }
-            
-            else if (cache.replacement_policy_type == LRU)
-            {
-                return 0;
-            }
-            
-            else if (cache.replacement_policy_type == Random)
-            {
-                return 0;
-            }
-            
-            
-        }
+
+        i++;
+
+
+        // if (associativity == 1) 
+        // {
+        //     // if (i < number_of_cache_blocks) {
+        //     //     cache[i].tag = access.address >> (32 - g_num_cache_tag_bits);
+        //     //     cache[i].index = access.address << g_num_cache_tag_bits;
+        //     //     cache[i].index = access.address >> (g_cache_offset_bits + g_num_cache_tag_bits);
+        //     //     cache[i].offset = access.address << (cache[i].tag + cache[i].index);
+        //     //     cache[i].offset = access.address >> (cache[i].tag + cache[i].index);
+        //     //     i ++;
+        //     // }
+
+        //     uint32_t tag = access.address >> (32 - g_num_cache_tag_bits);
+        //     uint32_t index = access.address << g_num_cache_tag_bits;
+        //     uint32_t index = access.address >> (g_cache_offset_bits + g_num_cache_tag_bits);
+        //     if (cache[index].index == )
+
+
+        // }
         
-        else 
-        {
+        // else if (associativity == number_of_cache_blocks)
+        // {
+        //     if (replacement_policy == FIFO) 
+        //     {
+        //        // return 0;
+        //     }
             
-            //return 0;
-        }
+        //     else if (replacement_policy == LRU)
+        //     {
+        //        // return 0;
+        //     }
+            
+        //     else if (replacement_policy == Random)
+        //     {
+        //        // return 0;
+        //     }
+            
+            
+        // }
+        
+        // else 
+        // {
+            
+        //     //return 0;
+        // }
         
         
                
 
     }
 
-    
+    free(cache);
+
+    //g_result.cache_misses = i - g_result.cache_hits;
 
     /* Do not modify code below. */
     /* Make sure that all the parameters are appropriately populated. */
