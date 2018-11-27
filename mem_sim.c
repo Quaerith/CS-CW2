@@ -98,30 +98,13 @@ void print_statistics(uint32_t num_cache_tag_bits, uint32_t cache_offset_bits, r
  *
  */
 
-/* Defines the structure of a cache block address */
+/* Defines the structure of a cache block address (leaves out the offset) */
 
 typedef struct {
     uint32_t tag;
     uint32_t index;
-    uint32_t offset;
 } cache_block;
 
-
-
-
-/* Sorting algorithm to keep track of least access block for fully associated LRU cache */
-
-
-void sort_LRU(uint32_t index_associativity, uint32_t last_access_index, cache_block* accesses) {
-    cache_block address = accesses[last_access_index];
-    if (last_access_index != index_associativity - 1) {
-        for(int i = last_access_index; i < index_associativity - 1; i++) {
-            accesses[i] = accesses[i+1];
-        }
-        accesses[index_associativity - 1] = address;
-    }
-
-}
 
 
 // Global variables and/or functions end
@@ -194,12 +177,14 @@ int main(int argc, char** argv) {
      * Use the following snippet and add your code to finish the task. */
 
     /* You may want to setup your Cache structure here. */
-     
 
+    /* Number of sets in the cache. This works as a general formula because
+       for direct-mapping you have associativity == 1 => number_of_sets = number_of_cache_blocks
+       and for fully associative, associativity == number_of_cache_block => number_of_sets = 1
+       which is correct in both cases */   
 
     uint32_t number_of_sets = number_of_cache_blocks / associativity;
 
-    /* Defines the structure of a cache block address */
 
     /* Calculating the tag, index (where necessary) and byte offset of a physical memory address */
 
@@ -221,22 +206,31 @@ int main(int argc, char** argv) {
         g_num_cache_tag_bits = 32 - g_cache_offset_bits - index_bits;
     }
 
-    /* Calculating the tag, index (where necessary) and byte offset of a physical memory address */
     
     /* Initialize an array for the cache blocks */
 
     cache_block* cache = malloc ((number_of_cache_blocks + 100) * sizeof(cache_block));
 
-    
 
     /* Initialize an array for each one of the (possible) block sets
-       sets[i] = n if the ith set had the most recent hit/replacement in its nth block */
+       sets[i] = n if the ith set had the most recent hit/replacement in its nth block
+       (used this way for the FIFO replacement policy.) */
 
     uint32_t* sets = (uint32_t*) calloc (number_of_sets, sizeof(uint32_t));
 
-    int i = 0;
 
-    uint32_t* lru_trace = calloc (number_of_cache_blocks, sizeof(uint32_t));     // will keep evidence of the least recently used block from a set
+    /* lru_trace array will keep evidence of the least recently used block from a set. 
+       The idea behind this is to keep increasing lru_trace[i] by one for each block i in a set s
+       if there is no hit in that block. 
+       If you get a hit, then lru_trace[i] resets to 0. 
+       Thus, the largest amount held by lru_trace (for a certain set) will denote that
+       the block i in the cache (i.e cache[i]) is the least recently accessed block in its set.
+       When comparing with the values of the other lru_traces in the corresponding set, 
+       I used ">" (strictly larger than) to ensure that the order is maintained.
+       The logic behind that is that for the first complete population of a set in the cache,
+       the addresses will be added to the set from the lowest i in the set to the highest one. */
+
+    uint32_t* lru_trace = calloc (number_of_cache_blocks, sizeof(uint32_t));     
 
    
 
@@ -259,9 +253,8 @@ int main(int argc, char** argv) {
         else { 
             index = (access.address << g_num_cache_tag_bits) >> (g_cache_offset_bits + g_num_cache_tag_bits);
         }
-
-    
-        int hit = 0;
+ 
+        int hit = 0;                                                      // initializes hit with 0 (meaning no hit yet)
 
         if (replacement_policy == FIFO)
         {
@@ -272,12 +265,12 @@ int main(int argc, char** argv) {
             for(int j = 0; j < associativity; j++){
                 if(cache[j + index/associativity].tag == tag) {
                     g_result.cache_hits++;
-                    hit = 1;
+                    hit = 1;                                              // hit == 1 if one of the tags in the set matches with the one of the current address
                     break;
                 }
             }
             
-            if (hit == 0) {
+            if (!hit) {                                                   // if there is no hit, use the replacement protocol to replace one of the addresses in the set
                 g_result.cache_misses++;
                 cache[index/associativity + sets[index/associativity]].tag = tag;
                 cache[index/associativity + sets[index/associativity]].index = index;
@@ -285,10 +278,7 @@ int main(int argc, char** argv) {
             }
             
         }
-
-        int done = 0;
         
-
         if (replacement_policy == LRU) {
             for (int j = 0; j < associativity; j++) {
                 lru_trace[j + index/associativity]++;
@@ -302,12 +292,11 @@ int main(int argc, char** argv) {
                 }
             }
 
-            if (hit == 0) {
+            if (!hit) {
                 g_result.cache_misses++;
                 uint32_t max_val = 0;
                 uint32_t max_val_index = 0;
                 for(int j = 0; j < associativity; j++) {
-                    // lru_trace[j + index/associativity]++;
                     if (lru_trace[j + index/associativity] > max_val) {
                         max_val = lru_trace[j + index/associativity];
                         max_val_index = j + index/associativity;
@@ -319,19 +308,29 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (replacement_policy == Random) {
+        if (replacement_policy == Random) { 
+            for (int j = 0; j < associativity; j++) {
+                if(cache[j + index/associativity].tag == tag) {
+                    g_result.cache_hits++;
+                    hit = 1;
+                    break;
+                }
+            }
+
+            if(!hit) {
+                g_result.cache_misses++;
+                uint32_t random_index = rand()%(associativity);
+                cache[random_index + index/associativity].tag = tag;
+                cache[random_index + index/associativity].index = index;
+            }
 
         }
-
-        i++;      
                   
     }
 
     free(cache);
     free(sets);
     free(lru_trace);
-
-    //g_result.cache_misses = i - g_result.cache_hits;
 
     /* Do not modify code below. */
     /* Make sure that all the parameters are appropriately populated. */
