@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
     
     /* Initialize an array for the cache blocks */
 
-    cache_block* cache = malloc ((number_of_cache_blocks + 100) * sizeof(cache_block));
+    cache_block* cache = malloc (number_of_cache_blocks * sizeof(cache_block));
 
 
     /* Initialize an array for each one of the (possible) block sets
@@ -258,12 +258,12 @@ int main(int argc, char** argv) {
 
         if (replacement_policy == FIFO)
         {
-            if (sets[index/associativity] == associativity) {
-                sets[index/associativity] = 0;                            // Resets the last accessed element of the set
+            if (sets[index] == associativity) {
+                sets[index] = 0;                                          // Resets the last accessed element of the set
             }
             int j = 0;
             for(int j = 0; j < associativity; j++){
-                if(cache[j + index/associativity].tag == tag) {
+                if(cache[j + index * associativity].tag == tag) {
                     g_result.cache_hits++;
                     hit = 1;                                              // hit == 1 if one of the tags in the set matches with the one of the current address
                     break;
@@ -272,22 +272,22 @@ int main(int argc, char** argv) {
             
             if (!hit) {                                                   // if there is no hit, use the replacement protocol to replace one of the addresses in the set
                 g_result.cache_misses++;
-                cache[index/associativity + sets[index/associativity]].tag = tag;
-                cache[index/associativity + sets[index/associativity]].index = index;
-                sets[index/associativity]++;
+                cache[index * associativity + sets[index]].tag = tag;
+                cache[index * associativity + sets[index]].index = index;
+                sets[index]++;
             }
             
         }
         
         if (replacement_policy == LRU) {
             for (int j = 0; j < associativity; j++) {
-                lru_trace[j + index/associativity]++;
+                lru_trace[j + index * associativity]++;
             }
             for(int j = 0; j < associativity; j++){
-                if(cache[j + index/associativity].tag == tag) {
+                if(cache[j + index * associativity].tag == tag) {
                     g_result.cache_hits++;
                     hit = 1;
-                    lru_trace[j + index/associativity] = 0;
+                    lru_trace[j + index * associativity] = 0;
                     break;
                 }
             }
@@ -297,9 +297,9 @@ int main(int argc, char** argv) {
                 uint32_t max_val = 0;
                 uint32_t max_val_index = 0;
                 for(int j = 0; j < associativity; j++) {
-                    if (lru_trace[j + index/associativity] > max_val) {
-                        max_val = lru_trace[j + index/associativity];
-                        max_val_index = j + index/associativity;
+                    if (lru_trace[j + index * associativity] > max_val) {
+                        max_val = lru_trace[j + index * associativity];
+                        max_val_index = j + index * associativity;
                     }
                 }
                 cache[max_val_index].tag = tag;
@@ -310,7 +310,7 @@ int main(int argc, char** argv) {
 
         if (replacement_policy == Random) { 
             for (int j = 0; j < associativity; j++) {
-                if(cache[j + index/associativity].tag == tag) {
+                if(cache[j + index * associativity].tag == tag) {
                     g_result.cache_hits++;
                     hit = 1;
                     break;
@@ -320,8 +320,8 @@ int main(int argc, char** argv) {
             if(!hit) {
                 g_result.cache_misses++;
                 uint32_t random_index = rand()%(associativity);
-                cache[random_index + index/associativity].tag = tag;
-                cache[random_index + index/associativity].index = index;
+                cache[random_index + index * associativity].tag = tag;
+                cache[random_index + index * associativity].index = index;
             }
 
         }
